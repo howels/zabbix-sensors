@@ -3,6 +3,7 @@
 import json
 import re
 import os
+import glob
 
 DIR = "/sys/class/hwmon"
 
@@ -48,6 +49,26 @@ def process_hwmon(n):
         return None, None
 
     name = read(f"{path}/name").strip()
+
+    blockdev = False
+    if os.path.isdir(f"{path}/device/block"):
+        blockdev = os.path.basename(glob.glob(f"{path}/device/block/*")[0])
+
+    if glob.glob(f"{path}/device/nvme*"):
+        blockdev = os.path.basename(glob.glob(f"{path}/device/nvme*")[0])
+
+    raw_devlinks = glob.glob("/dev/disk/by-id/*")
+    devlinks = list(filter(lambda x: not re.search("^nvme-eui|^nvme-nvme|^wwn-0x|^scsi-[0-9]", os.path.basename(x)), raw_devlinks))
+    if blockdev:
+        for devlink in devlinks:
+            if os.path.islink(devlink) and blockdev==os.path.basename(os.readlink(devlink)):
+                name = os.path.basename(devlink)
+                break
+    # else:
+    #     name = f"{hwm}-{name}"
+
+    # print(name)
+
     return name, process_sensors(path)
 
 
@@ -58,7 +79,6 @@ for hwm in list_hwmon():
     if not sensors:
         continue
 
-    name = f"{hwm}-{name}"
     r[name] = sensors
 
 print(json.dumps(r, indent=2, sort_keys=True))
