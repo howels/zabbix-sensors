@@ -13,7 +13,10 @@ def read(fn):
 
 
 def read_parse(fn):
-    x = read(fn).strip()
+    try:
+        x = read(fn).strip()
+    except BaseException:
+        x = 0
     try:
         return int(x)
     except BaseException:
