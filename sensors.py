@@ -93,6 +93,37 @@ def main():
 
         r[name] = sensors
 
+    # insert power stats for OpenWRT realtek PoE controllers
+    # requires a new ACL for zabbix-agent to access ubus poe stats
+    # add the following to /usr/share/acl.d/zabbix-agent.json
+    # then 'killall -HUP ubusd' to load the ACL
+    # {
+    # 	"user": "zabbix",
+    # 	"access": {
+    # 		"poe": {
+    # 			"methods": [ "info" ]
+    # 		}
+    # 	}
+    # }
+
+    ubus_poe = os.popen("/bin/ubus call poe info").read()
+
+    poe_stats = json.loads(ubus_poe)
+    ports = poe_stats['ports']
+
+    sensor_total = {}
+    sensor_total['input'] = int(poe_stats.get('consumption',0)*1000000)
+    sensor_total['sensor_type'] = 'power'
+    sensor_total['label'] = 'Total_PoE_power'
+    r[poe_stats['mcu']] = {'power1':sensor_total}
+
+    for port in ports:
+        sensor = {}
+        sensor['input'] = int(ports[port].get('consumption',0)*1000000)
+        sensor['sensor_type'] = 'power'
+        sensor['label'] = 'PoE_power'
+        r[port] = {'power1':sensor}
+
     print(json.dumps(r, indent=2, sort_keys=True))
 
 
